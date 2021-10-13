@@ -52,18 +52,18 @@ class DAWNNet(lg.LightningModule):
 
     def forward(self, x: torch.Tensor):
         x = self._forward_features(x)
-        print(f"\n\nx {x.size()}")
         x1,x2 = self.pool1(x),self.pool2(x)
 
         x = torch.cat((x1,x2),dim=1)
-        x = x.view(x.shape[0],x.shape[1],-1)
+        x = x.view(x.size(0),x.size(1))
+
         return self.fc1(x)
 
     def training_step(self, batch, batch_idx):
         x,y = batch
         logits = self(x)
 
-        loss = F.nll_loss(logits, y, reduction = "none")
+        loss = F.nll_loss(logits, y)
 
         preds = torch.argmax(logits, dim = 1)
         acc = tm.accuracy(preds,y)
