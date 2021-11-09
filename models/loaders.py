@@ -2,6 +2,7 @@ import os
 import pytorch_lightning as lg
 import torchvision as tv
 import torchvision.transforms as tr
+import torch
 import torch.utils.data as ta
 
 class CIFAR10DataModule(lg.LightningDataModule):
@@ -17,7 +18,8 @@ class CIFAR10DataModule(lg.LightningDataModule):
       self.transform = tr.Compose([
          tr.ToTensor(),
          tr.Normalize(mean=(125.31, 122.95, 113.87),
-                      std=(62.99, 62.09, 66.70))
+                      std=(62.99, 62.09, 66.70)),
+         tr.ConvertImageDtype(torch.float),
       ])
 
       self.dims = (3,32,32)
