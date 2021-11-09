@@ -1,4 +1,5 @@
 import pytorch_lightning as lg
+import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,6 +13,7 @@ class DAWNNet(lg.LightningModule):
                  batch_size: int = 128,
                  n_channels: int = 64):
         super().__init__()
+        self.total_time = 0
         self.batch_size = batch_size
         # log hyperparameters
         self.save_hyperparameters()
@@ -40,6 +42,7 @@ class DAWNNet(lg.LightningModule):
         # Hardcode num outputs to 10 because it's for CIFAR >10<
         self.fc1 = nn.Linear(2*can[3], 10, bias=True)
 
+
     def _get_conv_output(self, shape):
         batch_size = 1
         inpt = torch.autograd.Variable(torch.rand(batch_size,*shape))
@@ -59,7 +62,7 @@ class DAWNNet(lg.LightningModule):
 
         return self.fc1(x)
 
-    def training_step(self, batch, batch_idx):
+    def calc_step(self,batch):
         x,y = batch
         logits = self(x)
 
@@ -67,10 +70,35 @@ class DAWNNet(lg.LightningModule):
 
         preds = torch.argmax(logits, dim = 1)
         acc = tm.accuracy(preds,y)
+        return (x,y,loss,preds,acc)
 
-        self.log("test_loss",loss,prog_bar = True)
-        self.log("test_acc", acc, prog_bar = True)
-        return loss
+    def training_step(self, batch, batch_idx):
+        x,y,loss,preds,acc = self.calc_step(batch)
+        elapsed = time.perf_counter_ns() - self.start_stamp
+
+        self.logger.experiment.add_scalar("step/loss",loss)
+        self.logger.experiment.add_scalar("step/acc",acc)
+        self.logger.experiment.add_scalar("step/duration",elapsed)
+        return {"loss":loss,"acc":acc}
+
+    def validation_step(self, batch, batch_idx):
+        x,y,loss,preds,acc = self.calc_step(batch)
+        return {"loss":loss,"acc":acc}
+
+    def on_epoch_start(self):
+        self.start_stamp = time.perf_counter_ns()
+
+    def training_epoch_end(self,outputs):
+        elapsed = time.perf_counter_ns() - self.start_stamp
+        loss, acc = 0,0
+        for itm in outputs:
+            loss += itm["loss"]
+            acc += itm["acc"]
+        loss = loss / len(outputs)
+        acc = acc / len(outputs)
+        self.log("training/avg_loss",loss)
+        self.log("training/avg_acc",acc)
+        self.log("training/epoch_duration",elapsed)
 
     def configure_optimizers(self):
         optim = torch.optim.Adam(self.parameters(), lr = 1e-4)
