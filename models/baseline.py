@@ -101,7 +101,11 @@ class DAWNNet(lg.LightningModule):
         self.log("training/epoch_duration",elapsed)
 
     def configure_optimizers(self):
-        optim = torch.optim.Adam(self.parameters(), lr = 1e-4)
+        #optim = torch.optim.Adam(self.parameters(), lr = 1e-4)
+        optim = torch.optim.SGD(self.parameters(),
+                                lr = 0,
+                                weight_decay = 5e-4*self.batch_size,
+                                momentum = 0.9)
 
         # Attempt to match the piecewise linear schedule
         # [0,0.1,0.005,0] at epoch [0,15,30,35]
